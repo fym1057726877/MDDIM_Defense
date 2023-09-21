@@ -118,59 +118,6 @@ def draw_ori_and_recon_images32(images, recon_images):
     plt.show()
 
 
-def show_diffusion_process(diff_model, unet_model, imgs, num_col=12):
-    B, C, H, W = imgs.shape
-    assert H == W, "only support H==W images"
-    generated_images = diff_model.sample(unet_model, image_size=H, channels=C, batch_size=B,
-                                         img=imgs).cpu().detach().numpy()
-    fig = plt.figure(figsize=(10, 6.5))
-    gs = fig.add_gridspec(B, num_col)
-
-    for n_row in range(B):
-        for n_col in range(num_col):
-            f_ax = fig.add_subplot(gs[n_row, n_col])
-            t_idx = (1000 // num_col) * n_col if n_col < num_col - 1 else -1
-            img = generated_images[t_idx][n_row].reshape(H, W)
-            f_ax.imshow((img + 1.0) * 255 / 2, cmap="gray")
-            f_ax.axis("off")
-    plt.tight_layout()
-    plt.show()
-
-
-def show_diffusion_results(diff_model, unet_model, imgs, batch_size=64):
-    B, C, H, W = imgs.shape
-    assert H == W, "only support H==W images"
-    assert imgs.shape[0] == batch_size == 64, "only support batch_size=64"
-    generated_images = diff_model.sample(unet_model, image_size=H, channels=C, batch_size=B, img=imgs)
-    fig = plt.figure(figsize=(10, 6.5))
-    gs = fig.add_gridspec(8, 8)
-    imgs = generated_images[-1].reshape(8, 8, 28, 28).cpu().detach().numpy()
-    for n_row in range(8):
-        for n_col in range(8):
-            f_ax = fig.add_subplot(gs[n_row, n_col])
-            f_ax.imshow((imgs[n_row, n_col] + 1.0) * 255 / 2, cmap="gray")
-            f_ax.axis("off")
-    plt.tight_layout()
-    plt.show()
-
-
-def show_ddim_results(diff_model, unet_model, imgs):
-    B, C, H, W = imgs.shape
-    assert H == W, "only support H==W images"
-    assert imgs.shape[0] == 64, "only support batch_size=64"
-    final_sample = diff_model.ddim_sample_loop(unet_model, shape=imgs.shape, noise=imgs, progress=True)
-    fig = plt.figure(figsize=(10, 6.5))
-    gs = fig.add_gridspec(8, 8)
-    imgs = final_sample.squeeze(1).reshape(8, 8, 28, 28).cpu().detach().numpy()
-    for n_row in range(8):
-        for n_col in range(8):
-            f_ax = fig.add_subplot(gs[n_row, n_col])
-            f_ax.imshow((imgs[n_row, n_col] + 1.0) * 255 / 2, cmap="gray")
-            f_ax.axis("off")
-    plt.tight_layout()
-    plt.show()
-
-
 # [(h, w), (h, w), ……, (h, w)] -> [(batch_size, h, w), (batch_size, h, w), ……, (batch_size, h, w)]
 def batch_list(src_list: list, batch_size: int) -> list:
     length = len(src_list)

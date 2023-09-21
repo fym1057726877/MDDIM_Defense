@@ -3,7 +3,7 @@ from dataset.fashion_mnist import get_fashion_mnist_dataloader, transform_adv
 from utils import batch_list, get_project_path, draw_ori_and_recon_images32, draw_ori_adv_recon_images48
 from classifier.resnet import resnet50
 from tqdm import tqdm
-from models.ddim_munet import create_ddim_and_unet
+from models.ddim.ddim import create_ddim_and_unet
 
 root_dir = get_project_path()
 batch_size = 64
@@ -13,7 +13,7 @@ train_loader, test_loader = get_fashion_mnist_dataloader(batch_size=batch_size, 
 
 def adv_recon_test():
     ddim, unetmodel = create_ddim_and_unet(device=device)
-    unetmodel.load_state_dict(torch.load("./pretrained/mddim_fmnist.pth"))
+    unetmodel.load_state_dict(torch.load("./pretrained/ddim_fmnist_eps_new.pth"))
     classifier = resnet50(num_classes=10, pretrained=True)
     classifier = classifier.to(device)
 
@@ -47,8 +47,7 @@ def adv_recon_test():
                                  total=len(test_adv_imgs)):
             imgs = transform_adv(imgs)
             imgs, labels = imgs.to(device), labels.to(device)
-            recon_imgs = ddim.ddim_sample_loop(unetmodel, shape=imgs.shape, noise=imgs, progress=False)
-            recon_imgs = transform_adv(recon_imgs)
+            recon_imgs = ddim.ddim_sample_loop(unetmodel, shape=imgs.shape, noise=imgs, progress=False)[0]
             out = classifier(recon_imgs)
             predict = torch.max(out.data, dim=1)[1]
             adv_recon_correct += (predict == labels).sum()
@@ -65,7 +64,7 @@ def adv_recon_test():
 
 def show_recon_img():
     ddim, unetmodel = create_ddim_and_unet(device=device)
-    unetmodel.load_state_dict(torch.load("./pretrained/mddim_fmnist.pth"))
+    unetmodel.load_state_dict(torch.load("./pretrained/ddim_fmnist_eps_new.pth"))
 
     classifier = resnet50(num_classes=10, pretrained=True)
     classifier = classifier.to(device)
@@ -104,5 +103,5 @@ def show_recon_img():
 
 
 if __name__ == '__main__':
-    # adv_recon_test()
-    show_recon_img()
+    adv_recon_test()
+    # show_recon_img()

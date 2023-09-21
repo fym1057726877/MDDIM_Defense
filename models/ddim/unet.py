@@ -1,14 +1,11 @@
 from abc import abstractmethod
 import math
 import torch
-from .memoryunit import MemoryUnit
 import numpy as np
 import torch as th
 import torch.nn as nn
 import torch.nn.functional as F
-from .fp16_util import convert_module_to_f16, convert_module_to_f32
 from .nn import (
-    SiLU,
     conv_nd,
     linear,
     avg_pool_nd,
@@ -140,11 +137,11 @@ class ResBlock(TimestepBlock):
 
         self.in_layers = nn.Sequential(
             normalization(channels),
-            SiLU(),
+            nn.SiLU(),
             conv_nd(dims, channels, self.out_channels, 3, padding=1),
         )
         self.emb_layers = nn.Sequential(
-            SiLU(),
+            nn.SiLU(),
             linear(
                 emb_channels,
                 2 * self.out_channels if use_scale_shift_norm else self.out_channels,
@@ -152,7 +149,7 @@ class ResBlock(TimestepBlock):
         )
         self.out_layers = nn.Sequential(
             normalization(self.out_channels),
-            SiLU(),
+            nn.SiLU(),
             nn.Dropout(p=dropout),
             zero_module(
                 conv_nd(dims, self.out_channels, self.out_channels, 3, padding=1)
@@ -313,8 +310,6 @@ class UNetModel(nn.Module):
             num_heads=1,
             num_heads_upsample=-1,
             use_scale_shift_norm=False,
-            MEM_DIM=200,
-            addressing="sparse",
     ):
         super().__init__()
 
@@ -334,15 +329,10 @@ class UNetModel(nn.Module):
         self.num_heads = num_heads
         self.num_heads_upsample = num_heads_upsample
 
-        self.MEM_DIM = MEM_DIM
-        self.addressing = addressing
-        self.features = self.model_channels * 2 * 7 * 7
-        self.memory = MemoryUnit(MEM_DIM=self.MEM_DIM, features=self.features, addressing=self.addressing)
-
         time_embed_dim = model_channels * 4
         self.time_embed = nn.Sequential(
             linear(model_channels, time_embed_dim),
-            SiLU(),
+            nn.SiLU(),
             linear(time_embed_dim, time_embed_dim),
         )
 
@@ -438,25 +428,9 @@ class UNetModel(nn.Module):
 
         self.out = nn.Sequential(
             normalization(ch),
-            SiLU(),
+            nn.SiLU(),
             zero_module(conv_nd(dims, model_channels, out_channels, 3, padding=1)),
         )
-
-    def convert_to_fp16(self):
-        """
-        Convert the torso of the model to float16.
-        """
-        self.input_blocks.apply(convert_module_to_f16)
-        self.middle_block.apply(convert_module_to_f16)
-        self.output_blocks.apply(convert_module_to_f16)
-
-    def convert_to_fp32(self):
-        """
-        Convert the torso of the model to float32.
-        """
-        self.input_blocks.apply(convert_module_to_f32)
-        self.middle_block.apply(convert_module_to_f32)
-        self.output_blocks.apply(convert_module_to_f32)
 
     @property
     def inner_dtype(self):
@@ -485,21 +459,17 @@ class UNetModel(nn.Module):
             assert y.shape == (x.shape[0],)
             emb = emb + self.label_emb(y)
 
-        h = x.type(self.inner_dtype)  # (b, c, h, w)
+        h = x.type(self.inner_dtype)
         for module in self.input_blocks:
             h = module(h, emb)
             hs.append(h)
-
-        h = self.middle_block(h, emb)  # (b, mc*2, h/4, w/4)
-
-        h, weight = self.memory(h)
-
+        h = self.middle_block(h, emb)
         for module in self.output_blocks:
             cat_in = th.cat([h, hs.pop()], dim=1)
             h = module(cat_in, emb)
         h = h.type(x.dtype)
         out = self.out(h)
-        return out, weight
+        return out
 
     def get_feature_vectors(self, x, timesteps, y=None):
         """
@@ -534,40 +504,15 @@ class UNetModel(nn.Module):
         return result
 
 
-class SuperResModel(UNetModel):
-    """
-    A UNetModel that performs super-resolution.
-
-    Expects an extra kwarg `low_res` to condition on a low-resolution image.
-    """
-
-    def __init__(self, in_channels, *args, **kwargs):
-        super().__init__(in_channels * 2, *args, **kwargs)
-
-    def forward(self, x, timesteps, low_res=None, **kwargs):
-        _, _, new_height, new_width = x.shape
-        upsampled = F.interpolate(low_res, (new_height, new_width), mode="bilinear")
-        x = th.cat([x, upsampled], dim=1)
-        return super().forward(x, timesteps, **kwargs)
-
-    def get_feature_vectors(self, x, timesteps, low_res=None, **kwargs):
-        _, new_height, new_width, _ = x.shape
-        upsampled = F.interpolate(low_res, (new_height, new_width), mode="bilinear")
-        x = th.cat([x, upsampled], dim=1)
-        return super().get_feature_vectors(x, timesteps, **kwargs)
-
-
 if __name__ == '__main__':
     device = "cuda"
     unet = UNetModel(
         in_channels=1,
-        model_channels=64,
+        model_channels=96,
         out_channels=1,
         channel_mult=(1, 2, 2),
         attention_resolutions=[],
-        num_res_blocks=2,
-        MEM_DIM=200,
-        addressing="sparse",
+        num_res_blocks=2
     ).to(device)
     x = th.randn((16, 1, 28, 28), device=device)
     t = torch.randint(0, 100, (16,), device=device)

@@ -78,7 +78,7 @@ def clean_test():
 
 
 def adv_test():
-    model = resnet50(num_classes=10, pretrained=True)
+    model = resnet50(pretrained=True)
     model = model.to(device)
     test_adv_imgs = torch.load(root_dir + "/dataset/attacked/fmnist/test/fgsm_eps_0.03_resnet50/images.pth")
     test_adv_labs = torch.load(root_dir + "/dataset/attacked/fmnist/test/fgsm_eps_0.03_resnet50/labels.pth")

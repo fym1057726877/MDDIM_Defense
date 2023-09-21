@@ -296,13 +296,14 @@ class UNetModel(nn.Module):
 
     def __init__(
             self,
-            in_channels,
-            model_channels,
-            out_channels,
-            num_res_blocks,
-            attention_resolutions,
+            *,
+            in_channels=1,
+            model_channels=32,
+            out_channels=1,
+            num_res_blocks=2,
+            attention_resolutions=None,
             dropout=0,
-            channel_mult=(1, 2, 4, 8),
+            channel_mult=(1, 2, 2),
             conv_resample=True,
             dims=2,
             num_classes=None,
@@ -321,6 +322,8 @@ class UNetModel(nn.Module):
         self.out_channels = out_channels
         self.num_res_blocks = num_res_blocks
         self.attention_resolutions = attention_resolutions
+        if self.attention_resolutions is None:
+            self.attention_resolutions = []
         self.dropout = dropout
         self.channel_mult = channel_mult
         self.conv_resample = conv_resample
@@ -363,7 +366,7 @@ class UNetModel(nn.Module):
                     )
                 ]
                 ch = mult * model_channels
-                if ds in attention_resolutions:
+                if ds in self.attention_resolutions:
                     layers.append(
                         AttentionBlock(
                             ch, use_checkpoint=use_checkpoint, num_heads=num_heads
@@ -413,7 +416,7 @@ class UNetModel(nn.Module):
                     )
                 ]
                 ch = model_channels * mult
-                if ds in attention_resolutions:
+                if ds in self.attention_resolutions:
                     layers.append(
                         AttentionBlock(
                             ch,
@@ -508,7 +511,7 @@ if __name__ == '__main__':
     device = "cuda"
     unet = UNetModel(
         in_channels=1,
-        model_channels=96,
+        model_channels=32,
         out_channels=1,
         channel_mult=(1, 2, 2),
         attention_resolutions=[],

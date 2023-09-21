@@ -1,7 +1,7 @@
 import numpy as np
 import torch as th
 from torch.nn import functional as F
-from .unet import UNetModel
+from models.munet import MemoryUnet
 
 
 def get_beta(betas_schedule="linear", num_diffusion_timesteps=1000):
@@ -450,13 +450,15 @@ def create_ddim_and_unet(device):
         time_steps=1000,
         ddim_step=100
     )
-    unet = UNetModel(
+    unet = MemoryUnet(
         in_channels=1,
         model_channels=64,
         out_channels=1,
         channel_mult=(1, 2, 2),
         attention_resolutions=[],
         num_res_blocks=2,
+        MEM_DIM=200,
+        addressing="sparse",
     ).to(device)
     return diff, unet
 

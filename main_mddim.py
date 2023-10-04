@@ -6,10 +6,8 @@ from dataset.fashion_mnist import get_fashion_mnist_dataloader
 from tqdm import tqdm
 from time import time
 
-
 train_loader, test_loader = get_fashion_mnist_dataloader(batch_size=64, shuffle=True)
 device = "cuda" if torch.cuda.is_available() else "cpu"
-noises = torch.randn((64, 1, 28, 28), device=device)
 
 
 def train(epochs):
@@ -56,10 +54,10 @@ def test():
     imgs, labels = next(iter(test_loader))
     imgs, labels = imgs.to(device), labels.to(device)
     # show_ddim_results(ddim, model, imgs)
-    final_sample = ddim.ddim_sample_loop(model, shape=imgs.shape, noise=imgs, progress=True)
+    final_sample = ddim.ddim_sample_loop(model, shape=imgs.shape, noise=imgs, progress=True)[0]
     draw_ori_and_recon_images32(imgs, final_sample)
 
 
 if __name__ == "__main__":
-    train(20)
-    # test()
+    # train(40)
+    test()

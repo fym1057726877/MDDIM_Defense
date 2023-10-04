@@ -13,7 +13,7 @@ train_loader, test_loader = get_fashion_mnist_dataloader(batch_size=batch_size, 
 
 def adv_recon_test():
     ddim, unetmodel = create_ddim_and_unet(device=device)
-    unetmodel.load_state_dict(torch.load("./pretrained/ddim_fmnist_eps_new.pth"))
+    unetmodel.load_state_dict(torch.load("./pretrained/mddim_fmnist_eps.pth"))
     classifier = resnet50(num_classes=10, pretrained=True)
     classifier = classifier.to(device)
 
@@ -28,6 +28,7 @@ def adv_recon_test():
     total = 0
     clean_correct = 0
     adv_recon_correct = 0
+    clean_recon_correct = 0
     with torch.no_grad():
         for imgs, labels in tqdm(zip(test_adv_imgs, test_adv_labs), desc='adv test step', total=len(test_adv_imgs)):
             imgs = transform_adv(imgs)
@@ -43,28 +44,38 @@ def adv_recon_test():
             total += labels.shape[0]
             clean_correct += (predict == labels).sum()
 
-        for imgs, labels in tqdm(zip(test_adv_imgs, test_adv_labs), desc='adv recon test step',
-                                 total=len(test_adv_imgs)):
-            imgs = transform_adv(imgs)
+        for batch_idx, (imgs, labels) in tqdm(enumerate(test_loader), desc='clean_recon test step', total=len(test_loader)):
             imgs, labels = imgs.to(device), labels.to(device)
             recon_imgs = ddim.ddim_sample_loop(unetmodel, shape=imgs.shape, noise=imgs, progress=False)[0]
             out = classifier(recon_imgs)
             predict = torch.max(out.data, dim=1)[1]
-            adv_recon_correct += (predict == labels).sum()
+            clean_recon_correct += (predict == labels).sum()
+
+        # adv_recon test
+        # for imgs, labels in tqdm(zip(test_adv_imgs, test_adv_labs), desc='adv recon test step',
+        #                          total=len(test_adv_imgs)):
+        #     imgs = transform_adv(imgs)
+        #     imgs, labels = imgs.to(device), labels.to(device)
+        #     recon_imgs = ddim.ddim_sample_loop(unetmodel, shape=imgs.shape, noise=imgs, progress=False)[0]
+        #     out = classifier(recon_imgs)
+        #     predict = torch.max(out.data, dim=1)[1]
+        #     adv_recon_correct += (predict == labels).sum()
 
         adv_accuracy = adv_correct / total
         clean_accuracy = clean_correct / total
-        adv_recon_accuracy = adv_recon_correct / total
+        # adv_recon_accuracy = adv_recon_correct / total
+        clean_recon_accuracy = clean_recon_correct / total
         print(f"------------------------------------\n"
               f"clean_accuracy:{clean_accuracy}\n"
               f"adv_accuracy:{adv_accuracy}\n"
-              f"adv_recon_accuracy:{adv_recon_accuracy}\n"
+              f"clean_recon_accuracy:{clean_recon_accuracy}\n"
+              # f"adv_recon_accuracy:{adv_recon_accuracy}\n"
               f"------------------------------------")
 
 
 def show_recon_img():
     ddim, unetmodel = create_ddim_and_unet(device=device)
-    unetmodel.load_state_dict(torch.load("./pretrained/ddim_fmnist_eps_new.pth"))
+    unetmodel.load_state_dict(torch.load("./pretrained/mddim_fmnist_eps.pth"))
 
     classifier = resnet50(num_classes=10, pretrained=True)
     classifier = classifier.to(device)
@@ -89,7 +100,7 @@ def show_recon_img():
     predict_adv = torch.max(out_adv.data, dim=1)[1]
     correct_adv = (predict_adv == labs_adv).sum()
 
-    recon_imgs = ddim.ddim_sample_loop(unetmodel, shape=imgs_adv.shape, noise=imgs_adv, progress=False)
+    recon_imgs = ddim.ddim_sample_loop(unetmodel, shape=imgs_adv.shape, noise=imgs_adv, progress=False)[0]
 
     out_recon = classifier(recon_imgs)
     predict_recon = torch.max(out_recon.data, dim=1)[1]

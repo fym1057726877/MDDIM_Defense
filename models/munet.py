@@ -1,5 +1,5 @@
 from models.ddim.unet import UNetModel
-from memoryunit import MemoryUnit
+from .memoryunit import MemoryUnit
 import torch as th
 
 
@@ -11,7 +11,7 @@ class MemoryUnet(UNetModel):
         self.middle_block.add_module("memory", MemoryUnit(MEM_DIM=MEM_DIM, features=self.features, addressing=addressing))
 
     def forward(self, *args, **kwargs):
-        super().forward(*args, **kwargs)
+        return super().forward(*args, **kwargs)
 
 
 if __name__ == '__main__':
